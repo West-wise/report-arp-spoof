@@ -27,6 +27,8 @@ Mac getSenderMac(pcap_t* handle, Mac myMac, Ip myIP, Ip senderIp) {
     struct EthHdr* Ethernet;
     struct ArpHdr* Arp;
 
+    std::string smac;
+
     Mac senderMac;
     while (true) {
         int res = pcap_next_ex(handle, &header, &pkt);
@@ -38,10 +40,13 @@ Mac getSenderMac(pcap_t* handle, Mac myMac, Ip myIP, Ip senderIp) {
         Ethernet = (struct EthHdr *)(pkt);
         Arp = (struct ArpHdr *)(pkt + sizeof(EthHdr));
         if (ntohs(Ethernet->type_) == EthHdr::Arp && ntohs(Arp->op_) == ArpHdr::Reply && ntohl(Arp->sip_) == senderIp) {
-            senderMac = Arp->smac_;
-	    printf("Get Sender Mac!\n");
+            senderMac = Arp->smac_; 
+	    smac = static_cast<std::string>(senderMac);
+	    std::cout << "MAC Address: " << smac << std::endl;
             break;
-        }
+        }else{
+		printf("wating Sender MAC...\n");
+	}
     }
 
     return senderMac;

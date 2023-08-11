@@ -41,6 +41,7 @@ Ip getAttackerIp(const char *interfaceName) {
     struct sockaddr_in* sockaddr = reinterpret_cast<struct sockaddr_in*>(&ifr.ifr_addr);
     char ipBuffer[INET_ADDRSTRLEN]; // IP 주소를 저장할 버퍼
     inet_ntop(AF_INET, &(sockaddr->sin_addr), ipBuffer, INET_ADDRSTRLEN); // IP 주소를 문자열로 변환하여 저장
+    printf("Attacker Ip : %s\n",ipBuffer);
 
     
     return Ip(ipBuffer);

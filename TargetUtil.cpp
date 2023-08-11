@@ -29,6 +29,7 @@ Mac getTargetMac(pcap_t* handle, Mac myMac, Ip myIP, Ip TargetIp) {
         fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
     }
 
+    std::string tmac;
     const u_char* pkt;
     struct pcap_pkthdr* header;
     struct EthHdr* Ethernet;
@@ -45,9 +46,13 @@ Mac getTargetMac(pcap_t* handle, Mac myMac, Ip myIP, Ip TargetIp) {
         Arp = (struct ArpHdr *)(pkt + sizeof(EthHdr));
         if (Ethernet->type_ == htons(EthHdr::Arp) && Arp->op_ == htons(ArpHdr::Reply) && ntohl(Arp->sip_) == TargetIp){
             Target_Mac_Addr = Arp->smac_;
-	    printf("Get TargetMac!\n");
-            break;
+	    tmac = static_cast<std::string>(Target_Mac_Addr);
+	    std::cout << "Target MAC Address: " << tmac << std::endl;	    
+	    break;
         }
+	else{
+		printf("Wating Target MAC!\n");
+	}
     }
 
     return Target_Mac_Addr;

