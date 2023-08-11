@@ -32,7 +32,10 @@ Mac getSenderMac(pcap_t* handle, Mac myMac, Ip myIP, Ip senderIp) {
     Mac senderMac;
     while (true) {
         int res = pcap_next_ex(handle, &header, &pkt);
-        if (res == 0) continue;
+        if (res == 0){
+	       printf("no capture\n");
+		continue;
+	}
         if (res == PCAP_ERROR || res == PCAP_ERROR_BREAK) {
             printf("pcap_next_ex return %d(%s)\n", res, pcap_geterr(handle));
             break;
