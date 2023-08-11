@@ -147,7 +147,7 @@ int main(int argc, char* argv[]) {
         for (int i = 2; i < argc-1; i+=2) {
                 std::future<int> spoof_thread = std::async(std::launch::async, start_spoofing, dev, argv[i], argv[i + 1]);
                 spoof_threads.push_back(std::move(spoof_thread));
-                i += 1; // 각각의 주소를 처리하기 위해 두 개씩 건너뜀
+
         }
 
         // 모든 스레드가 끝날 때까지 기다림
